@@ -11,5 +11,10 @@ path = "bin/native_demo/mod.rs"
 
 [dependencies]
 chrono = { version = "0.4.22", default-features = false, features = ["clock"] }
+serde = { version = "1", features = ["derive"], optional = true }
 eframe = "0.19.0"
 egui_extras = "0.19.0"
+
+[features]
+default = []
+persistence = ["eframe/persistence", "serde"] 

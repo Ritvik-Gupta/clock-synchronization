@@ -1,3 +1,5 @@
+pub mod quartz_clock;
+
 #[cfg(test)]
 mod test {
     use chrono::{Duration as CDuration, Utc};
@@ -11,7 +13,7 @@ mod test {
         let instant = Instant::now();
         let then = Utc::now();
 
-        sleep(Duration::from_millis(1500));
+        sleep(Duration::from_millis(500));
         let elapsed = instant.elapsed();
 
         let drifted_time = then + CDuration::from_std(elapsed.mul_f64(CLOCK_DRIFT_SPEED)).unwrap();

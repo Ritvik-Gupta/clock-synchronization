@@ -1,13 +1,14 @@
 use eframe::epaint::Color32;
 
 #[derive(PartialEq)]
-pub struct ClockQuartz {
+#[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
+pub struct ClockQuartzConfig {
     pub drift: f64,
     pub skew_min: i64,
     pub skew_sec: i64,
 }
 
-impl Default for ClockQuartz {
+impl Default for ClockQuartzConfig {
     fn default() -> Self {
         Self {
             drift: 1.0,
@@ -17,15 +18,16 @@ impl Default for ClockQuartz {
     }
 }
 
+#[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
 pub struct Form {
-    pub quartz_snapshot: ClockQuartz,
+    pub quartz_snapshot: ClockQuartzConfig,
     pub chosen_clock_color: Color32,
 }
 
 impl Default for Form {
     fn default() -> Self {
         Self {
-            quartz_snapshot: ClockQuartz::default(),
+            quartz_snapshot: ClockQuartzConfig::default(),
             chosen_clock_color: Color32::from_rgb(146, 126, 238),
         }
     }
