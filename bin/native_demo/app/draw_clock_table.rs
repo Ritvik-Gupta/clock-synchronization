@@ -1,10 +1,10 @@
+use super::TemplateApp;
 use eframe::{
     egui::{Layout, RichText, Ui},
     emath::Align,
 };
 use egui_extras::{Size, TableBuilder};
-
-use super::TemplateApp;
+use std::sync::atomic::Ordering;
 
 impl TemplateApp {
     pub fn draw_clock_table(&self, ui: &mut Ui) {
@@ -29,13 +29,15 @@ impl TemplateApp {
                 body.row(30.0, |mut row| {
                     row.col(|ui| {
                         ui.centered_and_justified(|ui| {
+                            let system_clock =
+                                unsafe { &*self.system_clock.load(Ordering::Relaxed) };
                             ui.code(
                                 RichText::new(format!(
                                     " {:02} : {:02} : {:02} . {:03} ",
-                                    self.system_clock.hour(),
-                                    self.system_clock.minute(),
-                                    self.system_clock.second(),
-                                    self.system_clock.millisecond()
+                                    system_clock.hour(),
+                                    system_clock.minute(),
+                                    system_clock.second(),
+                                    system_clock.millisecond()
                                 ))
                                 .color(self.form.system_clock_color()),
                             );

@@ -1,6 +1,6 @@
 use eframe::epaint::Color32;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
 pub struct ClockQuartzConfig {
     pub drift: f64,

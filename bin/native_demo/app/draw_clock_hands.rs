@@ -1,5 +1,6 @@
 use super::TemplateApp;
 use eframe::egui::{Color32, Painter, Pos2, Shape, Stroke, Vec2};
+use std::sync::atomic::Ordering;
 
 const MILLISECOND_HAND_SIZE: f32 = 200.0;
 const SECOND_HAND_SIZE: f32 = MILLISECOND_HAND_SIZE - 10.0;
@@ -9,7 +10,7 @@ impl TemplateApp {
     pub fn draw_clock_hands(&self, painter: &Painter, center: Pos2, is_system_clock: bool) {
         let (clock, color) = if is_system_clock {
             (
-                &self.system_clock,
+                unsafe { &*self.system_clock.load(Ordering::Relaxed) },
                 self.form.system_clock_color().linear_multiply(0.25),
             )
         } else {

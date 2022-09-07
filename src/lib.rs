@@ -1,3 +1,4 @@
+pub mod grpc_server;
 pub mod quartz_clock;
 
 #[cfg(test)]

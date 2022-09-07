@@ -1,8 +1,8 @@
 use super::TemplateApp;
-use crate::state::ClockQuartzConfig;
 use chrono::Duration;
 use clock_synchronization::quartz_clock::QuartzUtcClock;
-use eframe::egui::{Button, Grid, Slider, Ui};
+use eframe::egui::{Button, Color32, Grid, RichText, Slider, Ui};
+use std::sync::atomic::Ordering;
 
 impl TemplateApp {
     pub fn draw_clock_config_form(&mut self, ui: &mut Ui) {
@@ -15,7 +15,7 @@ impl TemplateApp {
 
                 ui.end_row();
 
-                ui.vertical_centered_justified(|ui| {
+                ui.vertical(|ui| {
                     ui.add(
                         Slider::new(&mut self.form.quartz_snapshot.drift, 0.1..=5.0)
                             .text("Drift Rate")
@@ -31,13 +31,15 @@ impl TemplateApp {
                     ui.add(
                         Slider::new(&mut self.form.quartz_snapshot.skew_min, -59..=59)
                             .text("Minutes")
-                            .suffix(" min"),
+                            .suffix(" min")
+                            .custom_formatter(|n, _| format_with_sign(n as i64)),
                     );
 
                     ui.add(
                         Slider::new(&mut self.form.quartz_snapshot.skew_sec, -59..=59)
                             .text("Seconds")
-                            .suffix(" sec"),
+                            .suffix(" sec")
+                            .custom_formatter(|n, _| format_with_sign(n as i64)),
                     );
                 });
 
@@ -50,17 +52,14 @@ impl TemplateApp {
                     );
 
                     if simulation_button.clicked() {
-                        std::mem::swap(&mut self.quartz, &mut self.form.quartz_snapshot);
-                        self.form.quartz_snapshot = ClockQuartzConfig::default();
+                        self.quartz = self.form.quartz_snapshot.clone();
 
-                        self.system_clock = QuartzUtcClock::skewed_and_drifted(
-                            Duration::minutes(self.quartz.skew_min)
-                                + Duration::seconds(self.quartz.skew_sec),
-                            self.quartz.drift,
-                        );
-
-                        //TODO When only updating Quartz Skew the Drfit resets back to 1.0
-                        //TODO Update to fix this issue
+                        *unsafe { &mut *self.system_clock.load(Ordering::SeqCst) } =
+                            QuartzUtcClock::skewed_and_drifted(
+                                Duration::minutes(self.quartz.skew_min)
+                                    + Duration::seconds(self.quartz.skew_sec),
+                                self.quartz.drift,
+                            );
                     }
                 });
 
@@ -69,6 +68,38 @@ impl TemplateApp {
                 ui.vertical_centered_justified(|ui| {
                     ui.color_edit_button_srgba(&mut self.form.chosen_clock_color);
                 });
+
+                ui.end_row();
+
+                ui.vertical_centered(|ui| {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label("Drift Rate: ");
+                        ui.label(
+                            RichText::new(format!("{:.2}", self.quartz.drift))
+                                .color(Color32::LIGHT_GRAY),
+                        );
+                    });
+
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label("Skew Minutes: ");
+                        ui.label(
+                            RichText::new(format_with_sign(self.quartz.skew_min))
+                                .color(Color32::LIGHT_GRAY),
+                        );
+                    });
+
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label("Skew Seconds: ");
+                        ui.label(
+                            RichText::new(format_with_sign(self.quartz.skew_sec))
+                                .color(Color32::LIGHT_GRAY),
+                        );
+                    });
+                });
             });
     }
+}
+
+fn format_with_sign(num: i64) -> String {
+    format!("{}{:02}", if num >= 0 { '+' } else { '-' }, num.abs())
 }

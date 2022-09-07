@@ -14,7 +14,16 @@ chrono = { version = "0.4.22", default-features = false, features = ["clock"] }
 serde = { version = "1", features = ["derive"], optional = true }
 eframe = "0.19.0"
 egui_extras = "0.19.0"
+tonic = "0.7.2"
+prost = "0.10.4"
+tokio = { version = "1.19.2", features = ["macros", "rt-multi-thread"] }
+tokio-stream = "0.1.9"
+
+[build-dependencies]
+tonic-build = "0.7"
 
 [features]
 default = []
 persistence = ["eframe/persistence", "serde"] 
+mode-server = []
+mode-client = []
