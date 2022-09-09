@@ -17,6 +17,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(all(feature = "master", feature = "slave"))]
     compile_error!("A process cannot be Master and Slave at the same time");
 
+    #[cfg(feature = "puffin-profile")]
+    start_puffin_server();
+
     let system_clock = Arc::new(AtomicPtr::new(&mut QuartzUtcClock::default()));
 
     #[cfg(feature = "master")]
@@ -67,4 +70,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     Ok(())
+}
+
+#[cfg(feature = "puffin-profile")]
+fn start_puffin_server() {
+    puffin::set_scopes_on(true);
+
+    match puffin_http::Server::new("0.0.0.0:8585") {
+        Ok(puffin_server) => {
+            eprintln!("Run:  cargo install puffin_viewer && puffin_viewer --url 127.0.0.1:8585");
+            std::mem::forget(puffin_server);
+        }
+        Err(err) => eprintln!("Failed to start puffin server: {}", err),
+    };
 }

@@ -6,8 +6,9 @@ use eframe::{
 use std::sync::atomic::Ordering;
 
 const MILLISECOND_HAND_SIZE: f32 = 200.0;
-const SECOND_HAND_SIZE: f32 = MILLISECOND_HAND_SIZE - 10.0;
-const MINUTE_HAND_SIZE: f32 = SECOND_HAND_SIZE - 10.0;
+const SECOND_HAND_SIZE: f32 = MILLISECOND_HAND_SIZE - 20.0;
+const MINUTE_HAND_SIZE: f32 = SECOND_HAND_SIZE - 20.0;
+const HOUR_HAND_SIZE: f32 = MINUTE_HAND_SIZE - 20.0;
 
 impl TemplateApp {
     pub fn draw_clock_hands(&self, painter: &Painter, center: Pos2, is_system_clock: bool) {
@@ -52,12 +53,23 @@ impl TemplateApp {
         }));
 
         painter.add(Shape::Path(PathShape {
+            points: (0..=clock.minute() * (360 / 60))
+                .map(|angle| (angle as f32 - 90.0).to_radians())
+                .map(|angle| Vec2::new(angle.cos(), angle.sin()) * MINUTE_HAND_SIZE)
+                .map(|offset| center + offset)
+                .collect(),
+            closed: false,
+            stroke: Stroke::new(5.0, color),
+            fill: Color32::TRANSPARENT,
+        }));
+
+        painter.add(Shape::Path(PathShape {
             points: std::iter::repeat(center)
                 .take(1)
                 .chain(
-                    (0..=clock.minute() * (360 / 60))
+                    (0..=clock.hour() * (360 / 24))
                         .map(|angle| (angle as f32 - 90.0).to_radians())
-                        .map(|angle| Vec2::new(angle.cos(), angle.sin()) * MINUTE_HAND_SIZE)
+                        .map(|angle| Vec2::new(angle.cos(), angle.sin()) * HOUR_HAND_SIZE)
                         .map(|offset| center + offset),
                 )
                 .chain(std::iter::repeat(center).take(1))

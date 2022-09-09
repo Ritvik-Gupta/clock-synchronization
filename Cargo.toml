@@ -19,12 +19,15 @@ prost = "0.10.4"
 tokio = { version = "1.19.2", features = ["macros", "rt-multi-thread"] }
 tokio-stream = "0.1.9"
 poll-promise = { version = "0.1.0", features = ["tokio"], optional=true }
+puffin = { version = "0.13.3", optional = true } 
+puffin_http = { version = "0.10.0", optional = true }
 
 [build-dependencies]
 tonic-build = "0.7"
 
 [features]
-default = ["slave"]
+default = []
+puffin-profile = ["puffin", "puffin_http"]
 persistence = ["eframe/persistence", "serde"] 
 master = []
 slave = ["poll-promise"]

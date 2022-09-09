@@ -37,7 +37,9 @@ impl TemplateApp {
                     }
 
                     if cristian_time_query_button.clicked() {
+                        hover_state.clear();
                         click_state.clear();
+
                         click_state.use_future({
                             let mut client_conn = self.client_conn.clone();
                             async move {
