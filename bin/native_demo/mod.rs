@@ -6,18 +6,20 @@ use std::sync::{atomic::AtomicPtr, Arc};
 use app::TemplateApp;
 use clock_synchronization::quartz_clock::QuartzUtcClock;
 use eframe::egui;
-use tonic::transport::Channel;
 
-#[cfg(feature = "mode-client")]
+#[cfg(feature = "slave")]
 use clock_synchronization::grpc_server::clock::sync_clock_client::SyncClockClient;
-#[cfg(feature = "mode-client")]
+#[cfg(feature = "slave")]
 use tonic::transport::Endpoint;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(all(feature = "master", feature = "slave"))]
+    compile_error!("A process cannot be Master and Slave at the same time");
+
     let system_clock = Arc::new(AtomicPtr::new(&mut QuartzUtcClock::default()));
 
-    #[cfg(feature = "mode-server")]
+    #[cfg(feature = "master")]
     {
         use clock_synchronization::grpc_server::{
             clock::sync_clock_server::SyncClockServer, SyncClockService,
@@ -30,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 50051);
             let sync_clock_service = SyncClockService::with_clock(system_clock);
 
-            println!("Starting Server at {:?}", address.ip());
+            println!("Starting Master at {:?}", address.ip());
 
             Server::builder()
                 .add_service(SyncClockServer::new(sync_clock_service))
@@ -38,18 +40,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .await
                 .unwrap();
         });
-    }
-
-    #[allow(unused_assignments, unused_variables, unused_mut)]
-    let mut channel: Option<Channel> = None;
-
-    #[cfg(feature = "mode-client")]
-    {
-        channel = Some(
-            Endpoint::from_static("http://127.0.0.1:50051")
-                .connect()
-                .await?,
-        );
     }
 
     eframe::run_native(
@@ -61,14 +51,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ..eframe::NativeOptions::default()
         },
         Box::new(|cc| {
-            #[cfg(feature = "mode-client")]
-            let client = channel.map(|channel| SyncClockClient::new(channel));
-
             let app = TemplateApp::new(
                 cc,
                 system_clock,
-                #[cfg(feature = "mode-client")]
-                client,
+                #[cfg(feature = "slave")]
+                {
+                    println!("Slave Connecting to Master");
+                    SyncClockClient::new(
+                        Endpoint::from_static("http://127.0.0.1:50051").connect_lazy(),
+                    )
+                },
             );
             Box::new(app)
         }),

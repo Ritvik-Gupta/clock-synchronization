@@ -17,7 +17,7 @@ impl TemplateApp {
 
                 ui.vertical(|ui| {
                     ui.add(
-                        Slider::new(&mut self.form.quartz_snapshot.drift, 0.1..=5.0)
+                        Slider::new(&mut self.resources.form.quartz_snapshot.drift, 0.1..=5.0)
                             .text("Drift Rate")
                             .fixed_decimals(2),
                     );
@@ -29,14 +29,14 @@ impl TemplateApp {
                     ui.label("Skewness");
 
                     ui.add(
-                        Slider::new(&mut self.form.quartz_snapshot.skew_min, -59..=59)
+                        Slider::new(&mut self.resources.form.quartz_snapshot.skew_min, -59..=59)
                             .text("Minutes")
                             .suffix(" min")
                             .custom_formatter(|n, _| format_with_sign(n as i64)),
                     );
 
                     ui.add(
-                        Slider::new(&mut self.form.quartz_snapshot.skew_sec, -59..=59)
+                        Slider::new(&mut self.resources.form.quartz_snapshot.skew_sec, -59..=59)
                             .text("Seconds")
                             .suffix(" sec")
                             .custom_formatter(|n, _| format_with_sign(n as i64)),
@@ -47,26 +47,28 @@ impl TemplateApp {
 
                 ui.vertical_centered_justified(|ui| {
                     let simulation_button = ui.add_enabled(
-                        self.form.quartz_snapshot != self.quartz,
+                        self.resources.form.quartz_snapshot != self.quartz,
                         Button::new("Create Simulation"),
                     );
 
                     if simulation_button.clicked() {
-                        self.quartz = self.form.quartz_snapshot.clone();
+                        self.quartz = self.resources.form.quartz_snapshot.clone();
 
-                        *unsafe { &mut *self.system_clock.load(Ordering::SeqCst) } =
-                            QuartzUtcClock::skewed_and_drifted(
+                        self.system_clock.store(
+                            Box::leak(Box::new(QuartzUtcClock::skewed_and_drifted(
                                 Duration::minutes(self.quartz.skew_min)
                                     + Duration::seconds(self.quartz.skew_sec),
                                 self.quartz.drift,
-                            );
+                            ))),
+                            Ordering::Release,
+                        );
                     }
                 });
 
                 ui.end_row();
 
                 ui.vertical_centered_justified(|ui| {
-                    ui.color_edit_button_srgba(&mut self.form.chosen_clock_color);
+                    ui.color_edit_button_srgba(&mut self.resources.form.chosen_clock_color);
                 });
 
                 ui.end_row();
@@ -96,6 +98,8 @@ impl TemplateApp {
                         );
                     });
                 });
+
+                ui.end_row();
             });
     }
 }

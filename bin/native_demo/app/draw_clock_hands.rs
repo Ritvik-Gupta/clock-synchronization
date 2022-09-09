@@ -1,5 +1,8 @@
 use super::TemplateApp;
-use eframe::egui::{Color32, Painter, Pos2, Shape, Stroke, Vec2};
+use eframe::{
+    egui::{Color32, Painter, Pos2, Shape, Stroke, Vec2},
+    epaint::PathShape,
+};
 use std::sync::atomic::Ordering;
 
 const MILLISECOND_HAND_SIZE: f32 = 200.0;
@@ -10,17 +13,23 @@ impl TemplateApp {
     pub fn draw_clock_hands(&self, painter: &Painter, center: Pos2, is_system_clock: bool) {
         let (clock, color) = if is_system_clock {
             (
-                unsafe { &*self.system_clock.load(Ordering::Relaxed) },
-                self.form.system_clock_color().linear_multiply(0.25),
+                unsafe { &*self.system_clock.load(Ordering::Acquire) }.clone(),
+                self.resources
+                    .form
+                    .system_clock_color()
+                    .linear_multiply(0.25),
             )
         } else {
             (
-                &self.actual_clock,
-                self.form.inverse_clock_color().linear_multiply(0.25),
+                self.actual_clock.clone(),
+                self.resources
+                    .form
+                    .inverse_clock_color()
+                    .linear_multiply(0.25),
             )
         };
 
-        painter.add(Shape::Path(eframe::epaint::PathShape {
+        painter.add(Shape::Path(PathShape {
             points: (0..=(clock.millisecond() as f32 * (360.0 / 1000.0)) as u32)
                 .map(|angle| (angle as f32 - 90.0).to_radians())
                 .map(|angle| Vec2::new(angle.cos(), angle.sin()) * MILLISECOND_HAND_SIZE)
@@ -31,7 +40,7 @@ impl TemplateApp {
             fill: Color32::TRANSPARENT,
         }));
 
-        painter.add(Shape::Path(eframe::epaint::PathShape {
+        painter.add(Shape::Path(PathShape {
             points: (0..=clock.second() * (360 / 60))
                 .map(|angle| (angle as f32 - 90.0).to_radians())
                 .map(|angle| Vec2::new(angle.cos(), angle.sin()) * SECOND_HAND_SIZE)
@@ -42,7 +51,7 @@ impl TemplateApp {
             fill: Color32::TRANSPARENT,
         }));
 
-        painter.add(Shape::Path(eframe::epaint::PathShape {
+        painter.add(Shape::Path(PathShape {
             points: std::iter::repeat(center)
                 .take(1)
                 .chain(

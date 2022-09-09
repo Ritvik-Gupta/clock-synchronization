@@ -1,6 +1,9 @@
 mod draw_clock_config_form;
 mod draw_clock_hands;
 mod draw_clock_table;
+#[cfg(feature = "slave")]
+mod draw_slave_operations;
+mod update_states;
 
 use crate::state::{ClockQuartzConfig, Form};
 use clock_synchronization::quartz_clock::QuartzUtcClock;
@@ -10,50 +13,68 @@ use std::sync::{
     Arc,
 };
 
-#[cfg(feature = "mode-client")]
-use clock_synchronization::grpc_server::clock::sync_clock_client::SyncClockClient;
-#[cfg(feature = "mode-client")]
+#[cfg(feature = "slave")]
+use crate::state::use_state::State;
+#[cfg(feature = "slave")]
+use clock_synchronization::grpc_server::clock::{
+    sync_clock_client::SyncClockClient, CristianTimeResponse,
+};
+#[cfg(feature = "slave")]
 use tonic::transport::Channel;
 
 #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
-pub struct TemplateApp {
-    #[cfg_attr(feature = "persistence", serde(skip))]
-    system_clock: Arc<AtomicPtr<QuartzUtcClock>>,
-    #[cfg_attr(feature = "persistence", serde(skip))]
-    actual_clock: QuartzUtcClock,
-    #[cfg_attr(feature = "persistence", serde(skip))]
-    quartz: ClockQuartzConfig,
-
-    #[cfg(feature = "mode-client")]
-    #[cfg_attr(feature = "persistence", serde(skip))]
-    client_conn: Option<SyncClockClient<Channel>>,
-
+#[derive(Default)]
+pub struct Resourses {
     form: Form,
+}
+
+#[cfg(feature = "slave")]
+#[derive(Default)]
+pub struct States {
+    cristian_time_hover: State<CristianTimeResponse>,
+    cristian_time_click: State<CristianTimeResponse>,
+}
+
+pub struct TemplateApp {
+    system_clock: Arc<AtomicPtr<QuartzUtcClock>>,
+    actual_clock: QuartzUtcClock,
+    quartz: ClockQuartzConfig,
+    resources: Resourses,
+
+    #[cfg(feature = "slave")]
+    client_conn: SyncClockClient<Channel>,
+    #[cfg(feature = "slave")]
+    states: States,
 }
 
 impl TemplateApp {
     pub fn new(
         _cc: &eframe::CreationContext,
         system_clock: Arc<AtomicPtr<QuartzUtcClock>>,
-        #[cfg(feature = "mode-client")] client_conn: Option<SyncClockClient<Channel>>,
+        #[cfg(feature = "slave")] client_conn: SyncClockClient<Channel>,
     ) -> Self {
         #[allow(unused_mut)]
         let mut app = Self {
-            system_clock: system_clock.clone(),
+            system_clock,
             actual_clock: QuartzUtcClock::default(),
             quartz: ClockQuartzConfig::default(),
+            resources: Resourses::default(),
 
-            #[cfg(feature = "mode-client")]
+            #[cfg(feature = "slave")]
             client_conn,
-
-            form: Form::default(),
+            #[cfg(feature = "slave")]
+            states: States::default(),
         };
 
         #[cfg(feature = "persistence")]
         if let Some(storage) = _cc.storage {
-            eframe::get_value(storage, eframe::APP_KEY).map(|cached_app| app = cached_app);
-            app.system_clock = system_clock.clone();
+            app.resources = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
         }
+
+        app.system_clock.store(
+            Box::leak(Box::new(QuartzUtcClock::default())),
+            Ordering::Release,
+        );
 
         app
     }
@@ -62,7 +83,7 @@ impl TemplateApp {
 impl eframe::App for TemplateApp {
     #[cfg(feature = "persistence")]
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, eframe::APP_KEY, self);
+        eframe::set_value(storage, eframe::APP_KEY, &self.resources);
     }
 
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
@@ -81,10 +102,10 @@ impl eframe::App for TemplateApp {
             .resizable(false)
             .show(ctx, |ui| self.draw_clock_config_form(ui));
 
-        #[cfg(feature = "mode-client")]
+        #[cfg(feature = "slave")]
         SidePanel::right("client")
             .resizable(false)
-            .show(ctx, |ui| {});
+            .show(ctx, |ui| self.draw_slave_operations(ui));
 
         TopBottomPanel::bottom("clock-panel")
             .resizable(false)
@@ -98,8 +119,7 @@ impl eframe::App for TemplateApp {
             self.draw_clock_hands(&painter, rect.center(), false);
         });
 
-        self.actual_clock.tick_time();
-        unsafe { &mut *self.system_clock.load(Ordering::Relaxed) }.tick_time();
+        self.update_states();
         ctx.request_repaint();
     }
 }

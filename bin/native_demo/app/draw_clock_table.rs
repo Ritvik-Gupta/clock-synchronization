@@ -30,7 +30,7 @@ impl TemplateApp {
                     row.col(|ui| {
                         ui.centered_and_justified(|ui| {
                             let system_clock =
-                                unsafe { &*self.system_clock.load(Ordering::Relaxed) };
+                                unsafe { &*self.system_clock.load(Ordering::Acquire) }.clone();
                             ui.code(
                                 RichText::new(format!(
                                     " {:02} : {:02} : {:02} . {:03} ",
@@ -39,7 +39,7 @@ impl TemplateApp {
                                     system_clock.second(),
                                     system_clock.millisecond()
                                 ))
-                                .color(self.form.system_clock_color()),
+                                .color(self.resources.form.system_clock_color()),
                             );
                         });
                     });
@@ -54,7 +54,7 @@ impl TemplateApp {
                                     self.actual_clock.second(),
                                     self.actual_clock.millisecond()
                                 ))
-                                .color(self.form.inverse_clock_color()),
+                                .color(self.resources.form.inverse_clock_color()),
                             );
                         });
                     });

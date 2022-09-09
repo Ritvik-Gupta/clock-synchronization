@@ -1,3 +1,6 @@
+#[cfg(feature = "slave")]
+pub mod use_state;
+
 use eframe::epaint::Color32;
 
 #[derive(PartialEq, Clone)]

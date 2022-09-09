@@ -1,6 +1,7 @@
 use chrono::{Duration, NaiveTime, Timelike, Utc};
 use std::time::Instant;
 
+#[derive(Clone, Debug)]
 pub struct QuartzUtcClock {
     current_time: NaiveTime,
     instant: Instant,
@@ -9,21 +10,32 @@ pub struct QuartzUtcClock {
 
 impl Default for QuartzUtcClock {
     fn default() -> Self {
-        Self::skewed_and_drifted(Duration::zero(), 1.0)
+        Self {
+            current_time: Utc::now().time(),
+            instant: Instant::now(),
+            drift_rate: 1.0,
+        }
     }
 }
 
 impl QuartzUtcClock {
     pub fn skewed_and_drifted(skew: Duration, drift_rate: f64) -> Self {
-        Self {
-            current_time: Utc::now().time() + skew,
-            instant: Instant::now(),
-            drift_rate,
-        }
+        let mut clock = Self::default();
+        clock.skew_time(skew);
+        clock.drift_time(drift_rate);
+        clock
     }
 
-    pub fn drifted(drift_rate: f64) -> Self {
-        Self::skewed_and_drifted(Duration::zero(), drift_rate)
+    pub fn set_time(&mut self, time: NaiveTime) {
+        self.current_time = time;
+    }
+
+    pub fn skew_time(&mut self, duration: Duration) {
+        self.current_time += duration;
+    }
+
+    pub fn drift_time(&mut self, drift_rate: f64) {
+        self.drift_rate = drift_rate;
     }
 
     pub fn tick_time(&mut self) {

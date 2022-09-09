@@ -18,12 +18,13 @@ tonic = "0.7.2"
 prost = "0.10.4"
 tokio = { version = "1.19.2", features = ["macros", "rt-multi-thread"] }
 tokio-stream = "0.1.9"
+poll-promise = { version = "0.1.0", features = ["tokio"], optional=true }
 
 [build-dependencies]
 tonic-build = "0.7"
 
 [features]
-default = []
+default = ["slave"]
 persistence = ["eframe/persistence", "serde"] 
-mode-server = []
-mode-client = []
+master = []
+slave = ["poll-promise"]

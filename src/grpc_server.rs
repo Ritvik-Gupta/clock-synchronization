@@ -4,9 +4,12 @@ pub mod clock {
 
 use self::clock::{sync_clock_server::SyncClock, CristianTimeRequest, CristianTimeResponse};
 use crate::quartz_clock::QuartzUtcClock;
-use std::sync::{
-    atomic::{AtomicPtr, Ordering},
-    Arc,
+use std::{
+    sync::{
+        atomic::{AtomicPtr, Ordering},
+        Arc,
+    },
+    time::Duration,
 };
 use tonic::{Request, Response, Status};
 
@@ -27,14 +30,21 @@ impl SyncClock for SyncClockService {
         &self,
         _request: Request<CristianTimeRequest>,
     ) -> Result<Response<CristianTimeResponse>, Status> {
-        let time = unsafe { &mut *self.system_clock.load(Ordering::Relaxed) };
+        let mut time = unsafe { &*self.system_clock.load(Ordering::Acquire) }.clone();
         time.tick_time();
 
-        Ok(Response::new(CristianTimeResponse {
+        let response = Response::new(CristianTimeResponse {
             hours: time.hour(),
             minutes: time.minute(),
             seconds: time.second(),
             milliseconds: time.millisecond(),
-        }))
+        });
+
+        self.system_clock
+            .store(Box::leak(Box::new(time)), Ordering::Release);
+
+        tokio::time::sleep(Duration::from_secs(3)).await;
+
+        Ok(response)
     }
 }
