@@ -22,8 +22,9 @@ impl TemplateApp {
             );
 
             self.system_clock
-                .fetch_update(Ordering::AcqRel, Ordering::Acquire, |clock| {
-                    let mut clock = unsafe { &*clock }.clone();
+                .fetch_update(Ordering::AcqRel, Ordering::Acquire, |clk| {
+                    let mut clock = unsafe { &*clk }.clone();
+                    unsafe { Box::from_raw(clk) };
                     clock.set_time(server_time);
                     Some(Box::leak(Box::new(clock)))
                 })
@@ -32,8 +33,9 @@ impl TemplateApp {
 
         self.actual_clock.tick_time();
         self.system_clock
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |clock| {
-                let mut clock = unsafe { &*clock }.clone();
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |clk| {
+                let mut clock = unsafe { &*clk }.clone();
+                unsafe { Box::from_raw(clk) };
                 clock.tick_time();
                 Some(Box::leak(Box::new(clock)))
             })

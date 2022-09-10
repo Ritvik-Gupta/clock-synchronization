@@ -87,12 +87,6 @@ impl eframe::App for TemplateApp {
     }
 
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        #[cfg(feature = "puffin-profile")]
-        puffin::GlobalProfiler::lock().new_frame();
-
-        #[cfg(feature = "puffin-profile")]
-        puffin::profile_function!();
-
         ctx.set_visuals(egui::style::Visuals::dark());
 
         ctx.input().events.iter().for_each(|event| match event {
@@ -109,7 +103,7 @@ impl eframe::App for TemplateApp {
             .show(ctx, |ui| self.draw_clock_config_form(ui));
 
         #[cfg(feature = "slave")]
-        SidePanel::right("client")
+        SidePanel::right("slave-operations")
             .resizable(false)
             .show(ctx, |ui| self.draw_slave_operations(ui));
 

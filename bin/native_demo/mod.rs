@@ -1,49 +1,33 @@
 mod app;
 pub mod state;
 
-use std::sync::{atomic::AtomicPtr, Arc};
-
 use app::TemplateApp;
 use clock_synchronization::quartz_clock::QuartzUtcClock;
 use eframe::egui;
+use std::sync::{atomic::AtomicPtr, Arc};
 
 #[cfg(feature = "slave")]
-use clock_synchronization::grpc_server::clock::sync_clock_client::SyncClockClient;
-#[cfg(feature = "slave")]
-use tonic::transport::Endpoint;
+use {
+    clock_synchronization::grpc_server::clock::sync_clock_client::SyncClockClient,
+    tonic::transport::{Channel, Endpoint},
+};
+
+#[cfg(feature = "dhat-profile")]
+#[global_allocator]
+static ALLOC: dhat::Alloc = dhat::Alloc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(all(feature = "master", feature = "slave"))]
     compile_error!("A process cannot be Master and Slave at the same time");
 
-    #[cfg(feature = "puffin-profile")]
-    start_puffin_server();
+    #[cfg(feature = "dhat-profile")]
+    let _profiler = dhat::Profiler::new_heap();
 
     let system_clock = Arc::new(AtomicPtr::new(&mut QuartzUtcClock::default()));
 
     #[cfg(feature = "master")]
-    {
-        use clock_synchronization::grpc_server::{
-            clock::sync_clock_server::SyncClockServer, SyncClockService,
-        };
-        use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-        use tonic::transport::Server;
-
-        let system_clock = system_clock.clone();
-        tokio::spawn(async move {
-            let address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 50051);
-            let sync_clock_service = SyncClockService::with_clock(system_clock);
-
-            println!("Starting Master at {:?}", address.ip());
-
-            Server::builder()
-                .add_service(SyncClockServer::new(sync_clock_service))
-                .serve(address)
-                .await
-                .unwrap();
-        });
-    }
+    start_master_server(system_clock.clone());
 
     eframe::run_native(
         "Clocking",
@@ -58,12 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 cc,
                 system_clock,
                 #[cfg(feature = "slave")]
-                {
-                    println!("Slave Connecting to Master");
-                    SyncClockClient::new(
-                        Endpoint::from_static("http://127.0.0.1:50051").connect_lazy(),
-                    )
-                },
+                connect_slave_to_server(),
             );
             Box::new(app)
         }),
@@ -72,15 +51,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[cfg(feature = "puffin-profile")]
-fn start_puffin_server() {
-    puffin::set_scopes_on(true);
-
-    match puffin_http::Server::new("0.0.0.0:8585") {
-        Ok(puffin_server) => {
-            eprintln!("Run:  cargo install puffin_viewer && puffin_viewer --url 127.0.0.1:8585");
-            std::mem::forget(puffin_server);
-        }
-        Err(err) => eprintln!("Failed to start puffin server: {}", err),
+#[cfg(feature = "master")]
+fn start_master_server(system_clock: Arc<AtomicPtr<QuartzUtcClock>>) {
+    use clock_synchronization::grpc_server::{
+        clock::sync_clock_server::SyncClockServer, SyncClockService,
     };
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    use tonic::transport::Server;
+
+    tokio::spawn(async move {
+        let address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 50051);
+        let sync_clock_service = SyncClockService::with_clock(system_clock);
+
+        println!("Starting Master at {:?}", address);
+
+        Server::builder()
+            .add_service(SyncClockServer::new(sync_clock_service))
+            .serve(address)
+            .await
+            .unwrap();
+    });
+}
+
+#[cfg(feature = "slave")]
+fn connect_slave_to_server() -> SyncClockClient<Channel> {
+    println!("Slave Connecting to Master");
+    SyncClockClient::new(Endpoint::from_static("http://127.0.0.1:50051").connect_lazy())
 }
