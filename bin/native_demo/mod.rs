@@ -30,7 +30,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     start_master_server(system_clock.clone());
 
     eframe::run_native(
-        "Clocking",
+        if cfg!(feature = "master") {
+            "Master Clock"
+        } else if cfg!(feature = "slave") {
+            "Slave Clock"
+        } else {
+            "Debug Clock"
+        },
         eframe::NativeOptions {
             initial_window_size: Some(egui::Vec2::new(900.0, 600.0)),
             resizable: false,
